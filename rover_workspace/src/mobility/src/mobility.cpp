@@ -92,8 +92,8 @@ int main(int argc, char **argv) {
     targetDetected.data = -1; //initialize target detected
     
     //select initial search position 50 cm from center (0,0);
-	goalLocation.x = 1.5 * cos(goalLocation.theta); //0.5
-	goalLocation.y = 0.0 * sin(goalLocation.theta); //0.5
+	goalLocation.x = 0.5 * cos(goalLocation.theta); //0.5
+	goalLocation.y = 0.5 * sin(goalLocation.theta); //0.5
 
     if (argc >= 2) {
         publishedName = argv[1];
@@ -135,8 +135,6 @@ int main(int argc, char **argv) {
 void mobilityStateMachine(const ros::TimerEvent&) {
     std_msgs::String stateMachineMsg;
 
-    std::cout << " MODE: "<< endl;
-
     if (currentMode == 2 || currentMode == 3) { 
 
 		switch(stateMachineState) {
@@ -146,7 +144,7 @@ void mobilityStateMachine(const ros::TimerEvent&) {
 			case STATE_MACHINE_TRANSFORM: {
 				stateMachineMsg.data = "TRANSFORMING";
 				//If angle between current and goal is significant
-				if (fabs(angles::shortest_angular_distance(currentLocation.theta, goalLocation.theta)) > 1.5) { //0.1
+				if (fabs(angles::shortest_angular_distance(currentLocation.theta, goalLocation.theta)) > 1.8) { //0.1
 					stateMachineState = STATE_MACHINE_ROTATE; //rotate
 				}
 				//If goal has not yet been reached
@@ -157,12 +155,11 @@ void mobilityStateMachine(const ros::TimerEvent&) {
 				else if (targetDetected.data != -1) {
 
 					//If goal has not yet been reached
-					if (hypot(0.0 - currentLocation.x, 0.0 - currentLocation.y) > 0.5) {
-				        //set angle to center as goal heading
+					if (hypot(0.0 - currentLocation.x, 0.0 - currentLocation.y) > 0.5) { 
 						goalLocation.theta = M_PI + atan2(currentLocation.y, currentLocation.x);
 						
 						//set center as goal position
-						goalLocation.x = 1.0;//0.0
+						goalLocation.x = 1.0;//0.0 other 1.0
 						goalLocation.y = 1.0;
 					}
 					
@@ -170,12 +167,12 @@ void mobilityStateMachine(const ros::TimerEvent&) {
 						targetDetected.data = -1;
 					}
 				}
-				//Otherwise, assign a new goal
+				//Otherwiserasterize stepping program, assign a new goal
 				else {
 					
 					//select new position 50 cm from current location
-					goalLocation.x = currentLocation.x + (1.9 * cos(goalLocation.theta));//0.5
-					goalLocation.y = currentLocation.y + (1.9 * sin(goalLocation.theta));//0.5
+					goalLocation.x = currentLocation.x + (0.0 * cos(goalLocation.theta));//0.5 other 1.5
+					goalLocation.y = currentLocation.y + (0.0 * sin(goalLocation.theta));//0.5
 				}
 				
 				//Purposefully fall through to next case without breaking
@@ -186,11 +183,11 @@ void mobilityStateMachine(const ros::TimerEvent&) {
 			//Stay in this state until angle is minimized
 			case STATE_MACHINE_ROTATE: {
 				stateMachineMsg.data = "ROTATING";
-			    if (angles::shortest_angular_distance(currentLocation.theta, goalLocation.theta) > 0.1) {
-					setVelocity(0.0, 0.2); //rotate left
+			    if (angles::shortest_angular_distance(currentLocation.theta, goalLocation.theta) > 0.5) {//0.1
+					setVelocity(0.0, 0.2); //rotate left 0.0 , 0.2
 			    }
 			    else if (angles::shortest_angular_distance(currentLocation.theta, goalLocation.theta) < -0.1) {
-					setVelocity(0.0, -0.2); //rotate right 
+					setVelocity(0.0, -0.2); //rotate right
 				}
 				else {
 					setVelocity(0.0, 0.0); //stop 
@@ -205,7 +202,7 @@ void mobilityStateMachine(const ros::TimerEvent&) {
 			case STATE_MACHINE_TRANSLATE: {
 				stateMachineMsg.data = "TRANSLATING";
 				if (fabs(angles::shortest_angular_distance(currentLocation.theta, atan2(goalLocation.y - currentLocation.y, goalLocation.x - currentLocation.x))) < M_PI_2) {
-					setVelocity(0.3, 0.0);
+					setVelocity(3.0, 0.0);//3.0,0.02
 				}
 				else {
 					setVelocity(0.0, 0.0); //stop
@@ -224,12 +221,13 @@ void mobilityStateMachine(const ros::TimerEvent&) {
 
          //publish current state for the operator to see
         stateMachineMsg.data = "WAITING";
+
     }
 
      //publish state machine string for user, only if it has changed, though   
      if (strcmp(stateMachineMsg.data.c_str(), prev_state_machine) != 0) {
-        stateMachinePublish.publish(stateMachineMsg);
-        sprintf(prev_state_machine, "%s", stateMachineMsg.data.c_str());
+         stateMachinePublish.publish(stateMachineMsg);
+         sprintf(prev_state_machine, "%s", stateMachineMsg.data.c_str());
     }
 }
 
@@ -238,8 +236,8 @@ void setVelocity(double linearVel, double angularVel)
   // Stopping and starting the timer causes it to start counting from 0 again.
   // As long as this is called before the kill swith timer reaches killSwitchTimeout seconds
   // the rover's kill switch wont be called.
-  //killSwitchTimer.stop();
-  //killSwitchTimer.start();
+  killSwitchTimer.stop();
+  killSwitchTimer.start();
   
   velocity.linear.x = linearVel * 1.5;
   velocity.angular.z = angularVel * 8; //scaling factor for sim; removed by aBridge node
@@ -307,7 +305,8 @@ void obstacleHandler(const std_msgs::UInt8::ConstPtr& message) {
 			//select new heading 0.2 radians to the right
 			goalLocation.theta = currentLocation.theta - 0.2;
 		}
-							
+
+
 		//select new position 50 cm from current location
 		goalLocation.x = currentLocation.x + (0.5 * cos(goalLocation.theta));
 		goalLocation.y = currentLocation.y + (0.5 * sin(goalLocation.theta));
@@ -315,13 +314,6 @@ void obstacleHandler(const std_msgs::UInt8::ConstPtr& message) {
 		//switch to transform state to trigger collision avoidance
 		stateMachineState = STATE_MACHINE_TRANSFORM;
 	}
-}
-
-void joyCmdHandler(const geometry_msgs::Twist::ConstPtr& message) {
-    if (currentMode == 0 || currentMode == 1) 
-      {
-	setVelocity(message->linear.x, message->angular.z);
-      } 
 }
 
 void odometryHandler(const nav_msgs::Odometry::ConstPtr& message) {
@@ -335,6 +327,13 @@ void odometryHandler(const nav_msgs::Odometry::ConstPtr& message) {
 	double roll, pitch, yaw;
 	m.getRPY(roll, pitch, yaw);
 	currentLocation.theta = yaw;
+}
+
+void joyCmdHandler(const geometry_msgs::Twist::ConstPtr& message) {
+    if (currentMode == 0 || currentMode == 1) 
+      {
+	setVelocity(message->linear.x, message->angular.z);
+      } 
 }
 
 void publishStatusTimerEventHandler(const ros::TimerEvent&)
