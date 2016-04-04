@@ -32,7 +32,7 @@ void setVelocity(double linearVel, double angularVel);
 geometry_msgs::Pose2D currentLocation;
 geometry_msgs::Pose2D goalLocation;
 int currentMode = 0;
-float mobilityLoopTimeStep = 0.1; //time between the mobility loop calls
+float mobilityLoopTimeStep = 0.1; //time between the mobility loop calls 0.1
 float status_publish_interval = 5;
 float killSwitchTimeout = 10;
 std_msgs::Int16 targetDetected; //ID of the detected target
@@ -92,8 +92,8 @@ int main(int argc, char **argv) {
     targetDetected.data = -1; //initialize target detected
     
     //select initial search position 50 cm from center (0,0);
-	goalLocation.x = 0.5 * cos(goalLocation.theta); //0.5
-	goalLocation.y = 0.5 * sin(goalLocation.theta); //0.5
+	goalLocation.x = 1.5 * cos(goalLocation.theta); //0.5
+	goalLocation.y = 1.5 * sin(goalLocation.theta); //0.5
 
     if (argc >= 2) {
         publishedName = argv[1];
@@ -144,7 +144,7 @@ void mobilityStateMachine(const ros::TimerEvent&) {
 			case STATE_MACHINE_TRANSFORM: {
 				stateMachineMsg.data = "TRANSFORMING";
 				//If angle between current and goal is significant
-				if (fabs(angles::shortest_angular_distance(currentLocation.theta, goalLocation.theta)) > 1.8) { //0.1
+				if (fabs(angles::shortest_angular_distance(currentLocation.theta, goalLocation.theta)) > 2.0) { //0.1
 					stateMachineState = STATE_MACHINE_ROTATE; //rotate
 				}
 				//If goal has not yet been reached
@@ -171,8 +171,8 @@ void mobilityStateMachine(const ros::TimerEvent&) {
 				else {
 					
 					//select new position 50 cm from current location
-					goalLocation.x = currentLocation.x + (0.0 * cos(goalLocation.theta));//0.5 other 1.5
-					goalLocation.y = currentLocation.y + (0.0 * sin(goalLocation.theta));//0.5
+					goalLocation.x = currentLocation.x + (1.5 * cos(goalLocation.theta));//0.5 other 1.5
+					goalLocation.y = currentLocation.y + (1.5 * sin(goalLocation.theta));//0.5
 				}
 				
 				//Purposefully fall through to next case without breaking
@@ -183,11 +183,11 @@ void mobilityStateMachine(const ros::TimerEvent&) {
 			//Stay in this state until angle is minimized
 			case STATE_MACHINE_ROTATE: {
 				stateMachineMsg.data = "ROTATING";
-			    if (angles::shortest_angular_distance(currentLocation.theta, goalLocation.theta) > 0.5) {//0.1
+			    if (angles::shortest_angular_distance(currentLocation.theta, goalLocation.theta) > 0.1) {//0.1
 					setVelocity(0.0, 0.2); //rotate left 0.0 , 0.2
 			    }
 			    else if (angles::shortest_angular_distance(currentLocation.theta, goalLocation.theta) < -0.1) {
-					setVelocity(0.0, -0.2); //rotate right
+					setVelocity(0.0, -0.2); //rotate right 0.0 -0.2
 				}
 				else {
 					setVelocity(0.0, 0.0); //stop 
@@ -202,7 +202,7 @@ void mobilityStateMachine(const ros::TimerEvent&) {
 			case STATE_MACHINE_TRANSLATE: {
 				stateMachineMsg.data = "TRANSLATING";
 				if (fabs(angles::shortest_angular_distance(currentLocation.theta, atan2(goalLocation.y - currentLocation.y, goalLocation.x - currentLocation.x))) < M_PI_2) {
-					setVelocity(3.0, 0.0);//3.0,0.02
+					setVelocity(3.0, 0.02);//3.0,0.02
 				}
 				else {
 					setVelocity(0.0, 0.0); //stop
